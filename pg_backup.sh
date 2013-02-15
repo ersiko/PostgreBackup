@@ -1,7 +1,8 @@
 #!/bin/bash
 
 MAX_LOAD=1 #Maximum load in the server when the backup starts
-END_TIME=23:59 #Maximum time our script is allowed to start. The script code should be changed if backup windows starts and ends in different days, it only works on the same day.
+START_TIME=0:00 # 
+END_TIME=4:30 #Maximum time our script is allowed to start. The script code should be changed if backup windows starts and ends in different days, it only works on the same day.
 ADMIN_MAIL=tomas@criptos.com #Address where to notify about the results
 DESTINATION=/tmp
 FILENAME=dbdump
@@ -10,6 +11,7 @@ RETRY_SECONDS=10 # seconds to wait for a retry
 
 #initial values
 endtime=$(date -d $END_TIME +%s)
+starttime=$(date -d $START_TIME +%s)
 backup_done=0
 day_suffix=$(date +%Y%m%d)
 errors=0
@@ -38,8 +40,11 @@ $1
 EOF
 }
 
-echo $errors
-echo $MAX_RETRIES
+while [ $(date +%s) -lt $starttime ];do
+  echo "It's too early, can't start backup. Waiting until $START_TIME"
+  sleep 300
+done
+
 while [ $(date +%s) -lt $endtime ] && [ $backup_done -eq 0 ] && [ $errors -lt $MAX_RETRIES ]; do
   if [ $(high_load) -eq 0 ];then
     backup
