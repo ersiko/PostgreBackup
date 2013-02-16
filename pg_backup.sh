@@ -6,7 +6,7 @@
 MAX_LOAD=1 #Maximum load in the server when the backup starts
 START_TIME=0:00 # 
 END_TIME=6:00 #Maximum time our script is allowed to start. The script code should be changed if backup windows starts and ends in different days, it only works on the same day.
-MARGIN_TIME=1800 # in seconds
+MARGIN_TIME=1800 # how much deviation from max_backup_duration we want, in seconds
 DESTINATION=/tmp
 MAX_RETRIES=3 # Max backup error retries 
 RETRY_SECONDS=10 # seconds to wait for a retry
@@ -61,7 +61,7 @@ while [ $(date +%s) -lt $starttime ];do
 done
 
 now=$(date +%s)
-let foreseeable_endtime=$now+$max_backup_duration+$MARGIN_TIME
+let foreseeable_endtime=$now+$max_backup_duration+$MARGIN_TIME  #calculating when backup might end to see if it's still inside the time window 
 
 while [ $foreseeable_endtime -lt $endtime ] && [ $backup_uploaded -eq 0 ] && [ $errors -lt $MAX_RETRIES ]; do
   if [ $(high_load) -eq 0 ];then
@@ -71,6 +71,8 @@ while [ $foreseeable_endtime -lt $endtime ] && [ $backup_uploaded -eq 0 ] && [ $
     echo "Couldn't start backup, server load is too high"
     sleep 60
   fi
+  now=$(date +%s)
+  let foreseeable_endtime=$now+$max_backup_duration+$MARGIN_TIME  #calculating when backup might end to see if it's still inside the time window 
 done
 
 backup_ended=$(date +%s)
