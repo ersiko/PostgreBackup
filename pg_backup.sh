@@ -8,6 +8,7 @@ DESTINATION=/tmp
 FILENAME=dbdump
 MAX_RETRIES=3 # Max backup error retries 
 RETRY_SECONDS=10 # seconds to wait for a retry
+BUCKET=pg_backup #S3 bucket
 
 #initial values
 endtime=$(date -d $END_TIME +%s)
@@ -35,7 +36,7 @@ function backup {
 
 function upload_backup {
   if [ $backup_uploaded -eq 0 ];then
-    s3cmd put $DESTINATION/$FILENAME-$day_suffix.gz s3://pg_backup
+    s3cmd put $DESTINATION/$FILENAME-$day_suffix.gz s3://$BUCKET
     if [ $? -eq 0 ];then
       echo "Backup uploaded succesfully"
       backup_uploaded=1
