@@ -13,20 +13,38 @@ RETRY_SECONDS=10 # seconds to wait for a retry
 endtime=$(date -d $END_TIME +%s)
 starttime=$(date -d $START_TIME +%s)
 backup_done=0
+backup_uploaded=0
 day_suffix=$(date +%Y%m%d)
 errors=0
 
 function backup {
-  echo "Starting backup"
-  pg_dumpall | gzip > $DESTINATION/$FILENAME-$day_suffix.gz
-  if [ $? -eq 0 ];then
-    echo "Backup successful"
-    backup_done=1
-  else
-    echo "Something went wrong, we will try again in $RETRY_SECONDS seconds"
-    let errors++
-    sleep $RETRY_SECONDS
+  if [ $backup_done -eq 0 ];then
+    echo "Starting backup"
+    pg_dumpall | gzip > $DESTINATION/$FILENAME-$day_suffix.gz
+    if [ $? -eq 0 ];then
+      echo "Backup successful"
+      backup_done=1
+      errors=0
+    else
+      echo "Something went wrong backing up, we will try again in $RETRY_SECONDS seconds"
+      let errors++
+      sleep $RETRY_SECONDS
+    fi
   fi
+}
+
+function upload_backup {
+  if [ $backup_uploaded -eq 0 ];then
+    s3cmd put $DESTINATION/$FILENAME-$day_suffix.gz s3://pg_backup
+    if [ $? -eq 0 ];then
+      echo "Backup uploaded succesfully"
+      backup_uploaded=1
+    else
+      echo "Something went wrong uploading the backup, we will try again in $RETRY_SECONDS seconds"
+      let errors++
+      sleep $RETRY_SECONDS
+    fi  
+  fi  
 }
 
 function high_load {
@@ -45,9 +63,10 @@ while [ $(date +%s) -lt $starttime ];do
   sleep 300
 done
 
-while [ $(date +%s) -lt $endtime ] && [ $backup_done -eq 0 ] && [ $errors -lt $MAX_RETRIES ]; do
+while [ $(date +%s) -lt $endtime ] && [ $backup_uploaded -eq 0 ] && [ $errors -lt $MAX_RETRIES ]; do
   if [ $(high_load) -eq 0 ];then
     backup
+    upload_backup
   else
     echo "Couldn't start backup, server load is too high"
     sleep 60
