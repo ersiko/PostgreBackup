@@ -1,10 +1,12 @@
 #!/bin/bash
 
 . $(dirname $0)/backup_vars
+. $(dirname $0)/max_backup_duration
 
 MAX_LOAD=1 #Maximum load in the server when the backup starts
 START_TIME=0:00 # 
-END_TIME=4:30 #Maximum time our script is allowed to start. The script code should be changed if backup windows starts and ends in different days, it only works on the same day.
+END_TIME=6:00 #Maximum time our script is allowed to start. The script code should be changed if backup windows starts and ends in different days, it only works on the same day.
+MARGIN_TIME=1800 # in seconds
 DESTINATION=/tmp
 MAX_RETRIES=3 # Max backup error retries 
 RETRY_SECONDS=10 # seconds to wait for a retry
@@ -16,6 +18,7 @@ backup_done=0
 backup_uploaded=0
 day_suffix=$(date +%Y%m%d)
 errors=0
+backup_started=$(date +%s)
 
 function backup {
   if [ $backup_done -eq 0 ];then
@@ -57,7 +60,10 @@ while [ $(date +%s) -lt $starttime ];do
   sleep 300
 done
 
-while [ $(date +%s) -lt $endtime ] && [ $backup_uploaded -eq 0 ] && [ $errors -lt $MAX_RETRIES ]; do
+now=$(date +%s)
+let foreseeable_endtime=$now+$max_backup_duration+$MARGIN_TIME
+
+while [ $foreseeable_endtime -lt $endtime ] && [ $backup_uploaded -eq 0 ] && [ $errors -lt $MAX_RETRIES ]; do
   if [ $(high_load) -eq 0 ];then
     backup
     upload_backup
@@ -67,6 +73,10 @@ while [ $(date +%s) -lt $endtime ] && [ $backup_uploaded -eq 0 ] && [ $errors -l
   fi
 done
 
-[ $(date +%s) -ge $endtime ] && echo "Out of our backup window, giving up" && send_mail "Error backing up pg_sql" "Out of our backup window, giving up" 
+backup_ended=$(date +%s)
+let backup_duration=$backup_ended-$backup_started
+
+[ $foreseeable_endtime -ge $endtime ] && echo "Out of our backup window, giving up" && send_mail "Error backing up pg_sql" "Out of our backup window, giving up" 
 [ $errors -eq $MAX_RETRIES ] && echo "Too much backup retries, giving up" && send_mail "Error backing up pg_sql" "Too much backup retries, giving up"
-[ $backup_done -eq 1 ] && send_mail "Successfully backed up pg_sql" "Backup successful"
+[ $backup_done -eq 1 ] && send_mail "Successfully backed up pg_sql" "Backup successful" && [ $backup_duration -gt $max_backup_duration ] && echo "max_backup_duration=$backup_duration" > $(dirname $0)/max_backup_duration
+
