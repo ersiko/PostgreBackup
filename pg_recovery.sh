@@ -1,8 +1,10 @@
 #!/bin/bash
 
-BUCKET=pg_backup
-backup_dbname=dbdump
-last_backup=$(s3cmd ls s3://$BUCKET|grep $backup_dbname|grep .gz|sort|awk '{print $4}')
+. $(dirname $0)/backup_vars
+
+
+DBNAME=dbdump
+last_backup=$(s3cmd ls s3://$BUCKET|grep $DBNAME|grep .gz|sort|tail -1|awk '{print $4}')
 backup_downloaded=0
 
 function backup_download {
@@ -39,7 +41,7 @@ function yes-no {
 [ $1 != "recovery" ] && echo "Error, $1 is an incorrect action. Correct values: list, recovery" && exit 1
 [ -z $2 ] && echo "No date provided, assuming recovery of last backup" && backup_file=$last_backup
 
-[ ! -z $2 ] && backup_file=$(s3cmd ls s3://$BUCKET|grep $backup_dbname|grep $2.gz|tail -1|awk '{print $4}')
+[ ! -z $2 ] && backup_file=$(s3cmd ls s3://$BUCKET|grep $DBNAME|grep $2.gz|tail -1|awk '{print $4}')
 [ -z $backup_file ] && echo "There is no backup of this database on this date, please check again with '$0 list', and remember date format is YYYYmmdd" && exit
 
 

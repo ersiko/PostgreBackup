@@ -1,0 +1,9 @@
+DBNAME=dbdump
+BUCKET=pg_backup
+ADMIN_MAIL=tomas@criptos.com #Address where to notify about the results
+
+function send_mail {
+  mail $ADMIN_MAIL -s "$1" << EOF
+  "$2"
+EOF
+}
